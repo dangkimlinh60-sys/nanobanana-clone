@@ -1,10 +1,9 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { Inter } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import "./globals.css"
 
-const inter = Inter({ subsets: ["latin"] })
+// Remove next/font Google import to avoid network fetch during build
 
 export const metadata: Metadata = {
   title: "Nano Banana - AI Image Editor",
