@@ -4,6 +4,16 @@ import { headers } from 'next/headers'
 // Server-side Supabase client for reading the current session/user in RSC.
 // We only implement cookies.get here to avoid mutating cookies from a Server Component.
 export async function createSupabaseServerClient() {
+  // If env not configured (e.g., during static build on CI), return a no-op stub to avoid build-time crash.
+  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
+    return {
+      auth: {
+        async getUser() {
+          return { data: { user: null }, error: null }
+        },
+      },
+    } as any
+  }
   // Read cookie header once (no usage of cookies() to avoid Next 16 sync-dynamic-apis warning)
   let headerCookie = ''
   try {
