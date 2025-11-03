@@ -51,23 +51,31 @@ export async function getUserEmailFromCookies(): Promise<string | null> {
     }
   } catch {}
 
-  // Find sb-*-auth-token cookie
-  const cookiesArr = String(headerCookie).split(/; */)
-  const sbCookie = cookiesArr.find((p) => /\bsb-[^=]+-auth-token=/.test(p))
-  if (!sbCookie) return null
-  const raw = decodeURIComponent(sbCookie.split('=')[1] || '')
+  const pairs = String(headerCookie)
+    .split(/; */)
+    .map((p) => {
+      const i = p.indexOf('=')
+      if (i === -1) return null
+      return { name: decodeURIComponent(p.slice(0, i).trim()), value: decodeURIComponent(p.slice(i + 1)) }
+    })
+    .filter(Boolean) as { name: string; value: string }[]
 
-  // Try JSON parse first (common shape: { access_token, ... })
-  try {
-    const obj = JSON.parse(raw)
-    const token = obj?.access_token || obj?.currentSession?.access_token || ''
-    const email = decodeJwtEmail(token)
-    return email
-  } catch {}
-
-  // If not JSON, maybe the cookie directly stores the token
-  const email = decodeJwtEmail(raw)
-  return email
+  // Consider multiple possible cookie names from Supabase across versions
+  const candidates = pairs.filter((c) => /^(sb-|supabase-)/.test(c.name) || /auth-token/i.test(c.name))
+  for (const c of candidates) {
+    const raw = c.value
+    // JSON shape
+    try {
+      const obj = JSON.parse(raw)
+      const token = obj?.access_token || obj?.currentSession?.access_token || obj?.accessToken || ''
+      const email = decodeJwtEmail(token)
+      if (email) return email
+    } catch {}
+    // JWT directly
+    const email = decodeJwtEmail(raw)
+    if (email) return email
+  }
+  return null
 }
 
 function decodeJwtEmail(token: string): string | null {
@@ -79,4 +87,16 @@ function decodeJwtEmail(token: string): string | null {
   } catch {
     return null
   }
+}
+
+// Quick check whether any Supabase auth cookie exists
+export async function hasSupabaseAuthCookie(): Promise<boolean> {
+  let headerCookie = ''
+  try {
+    const hdrs = await headers()
+    if (hdrs && typeof (hdrs as any).get === 'function') {
+      headerCookie = (hdrs as any).get('cookie') || ''
+    }
+  } catch {}
+  return /(\bsb-[^=]+=|\bsupabase-[^=]+=|auth-token)/i.test(String(headerCookie))
 }

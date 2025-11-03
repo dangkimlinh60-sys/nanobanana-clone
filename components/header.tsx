@@ -2,7 +2,8 @@ export const dynamic = "force-dynamic"
 
 import { Button, buttonVariants } from "@/components/ui/button"
 import Link from "next/link"
-import { createSupabaseServerClient, getUserEmailFromCookies } from "@/lib/supabase/server"
+import { createSupabaseServerClient, getUserEmailFromCookies, hasSupabaseAuthCookie } from "@/lib/supabase/server"
+export const revalidate = 0
 
 export default async function Header() {
   const supabase = await createSupabaseServerClient()
@@ -12,6 +13,7 @@ export default async function Header() {
   // Fallback: if Supabase client couldn't resolve the user (e.g., network blocked),
   // try to read email from auth cookie directly so header UI can reflect login state.
   const fallbackEmail = user ? null : await getUserEmailFromCookies()
+  const hasAuth = user || fallbackEmail ? true : await hasSupabaseAuthCookie()
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -49,14 +51,16 @@ export default async function Header() {
         </nav>
 
         <div className="flex items-center gap-3">
-          {user || fallbackEmail ? (
+          {hasAuth ? (
             <>
-              <span className="text-sm text-muted-foreground hidden sm:inline">{user?.email || fallbackEmail}</span>
+              <span className="text-sm text-muted-foreground hidden sm:inline">
+                已登录{(user?.email || fallbackEmail) ? `：${user?.email || fallbackEmail}` : ''}
+              </span>
               <a
                 href="/auth/logout"
                 className={buttonVariants({ variant: "outline", size: "sm" })}
               >
-                Sign Out
+                退出登录
               </a>
             </>
           ) : (
@@ -65,13 +69,13 @@ export default async function Header() {
                 href="/auth/login"
                 className={buttonVariants({ variant: "outline", size: "sm" })}
               >
-                GitHub Login
+                使用 GitHub 登录
               </a>
               <a
                 href="/auth/login/google"
                 className={buttonVariants({ variant: "outline", size: "sm" })}
               >
-                Google Login
+                使用 Google 登录
               </a>
             </div>
           )}
