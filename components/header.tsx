@@ -1,9 +1,18 @@
-"use client"
+export const dynamic = "force-dynamic"
 
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import Link from "next/link"
+import { createSupabaseServerClient, getUserEmailFromCookies } from "@/lib/supabase/server"
 
-export function Header() {
+export default async function Header() {
+  const supabase = await createSupabaseServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  // Fallback: if Supabase client couldn't resolve the user (e.g., network blocked),
+  // try to read email from auth cookie directly so header UI can reflect login state.
+  const fallbackEmail = user ? null : await getUserEmailFromCookies()
+
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between">
@@ -40,9 +49,32 @@ export function Header() {
         </nav>
 
         <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm">
-            Sign In
-          </Button>
+          {user || fallbackEmail ? (
+            <>
+              <span className="text-sm text-muted-foreground hidden sm:inline">{user?.email || fallbackEmail}</span>
+              <a
+                href="/auth/logout"
+                className={buttonVariants({ variant: "outline", size: "sm" })}
+              >
+                Sign Out
+              </a>
+            </>
+          ) : (
+            <div className="flex items-center gap-2">
+              <a
+                href="/auth/login"
+                className={buttonVariants({ variant: "outline", size: "sm" })}
+              >
+                GitHub Login
+              </a>
+              <a
+                href="/auth/login/google"
+                className={buttonVariants({ variant: "outline", size: "sm" })}
+              >
+                Google Login
+              </a>
+            </div>
+          )}
           <Button size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90">
             Launch Now
           </Button>
